@@ -30,7 +30,16 @@ public class UsageEventService {
 
     public boolean ingest(UsageEventRequest request) {
         validate(request);
-        return repository.save(createEvent(request));
+        boolean created = repository.save(createEvent(request));
+        List<UsageEvent> all = repository.findAll();
+        System.out.println("Stored events (" + all.size() + "): " + all);
+        return created;
+    }
+
+    public List<UsageEvent> listAll() {
+        List<UsageEvent> all = repository.findAll();
+        System.out.println("Stored events (" + all.size() + "): " + all);
+        return all;
     }
 
     public void ingestBatch(List<UsageEventRequest> requests) {

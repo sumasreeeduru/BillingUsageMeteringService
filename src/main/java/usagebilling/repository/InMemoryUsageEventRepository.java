@@ -91,4 +91,9 @@ public class InMemoryUsageEventRepository
 
         return result;
     }
+
+    @Override
+    public List<UsageEvent> findAll() {
+        return new ArrayList<>(events.values());
+    }
 }

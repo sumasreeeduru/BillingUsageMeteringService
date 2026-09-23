@@ -172,7 +172,17 @@
     </section>
 
     <section>
-      <h2>2. Customer invoice summary</h2>
+      <h2>2. Batch ingest events</h2>
+      <label for="batchJson">Events JSON array</label>
+      <textarea id="batchJson" rows="12" style="font-family: ui-monospace, monospace; font-size: 0.85rem;"></textarea>
+      <button id="batchBtn" type="button">Send batch</button>
+      <button id="batchSampleBtn" class="secondary" type="button">Reset sample JSON</button>
+      <p id="batchStatus" class="status"></p>
+      <pre id="batchResult">{}</pre>
+    </section>
+
+    <section>
+      <h2>3. Customer invoice summary</h2>
       <label for="summaryCustomerId">Customer ID</label>
       <input id="summaryCustomerId" value="C1" />
 
@@ -194,10 +204,18 @@
     </section>
 
     <section class="full">
+      <h2>4. View stored events (in memory)</h2>
+      <button id="listEventsBtn" type="button">Show all stored events</button>
+      <p id="listStatus" class="status"></p>
+      <pre id="listResult">[]</pre>
+    </section>
+
+    <section class="full">
       <h2>How to use</h2>
       <p style="margin:0;color:var(--muted);font-size:0.92rem;">
-        Send one or more events, then fetch the invoice for that customer and time range.
-        Duplicate event IDs return status <code>duplicate</code> (HTTP 200).
+        Send a single event or a batch, then fetch the invoice for that customer and time range.
+        Duplicate event IDs return status <code>duplicate</code> (HTTP 200) for single ingest.
+        Use “Show all stored events” to print whatever is currently in memory.
       </p>
     </section>
   </main>
@@ -219,6 +237,41 @@
       return value.endsWith("Z") ? value : value + "Z";
     }
 
+    function fillBatchSample() {
+      const now = new Date();
+      const t1 = inputToIso(toLocalInputValue(now));
+      const earlier = new Date(now.getTime() - 60 * 60 * 1000);
+      const t2 = inputToIso(toLocalInputValue(earlier));
+
+      const sample = {
+        events: [
+          {
+            eventId: "B1",
+            customerId: "C1",
+            resourceType: "DATABASE",
+            quantity: 10,
+            eventTimestamp: t2
+          },
+          {
+            eventId: "B2",
+            customerId: "C1",
+            resourceType: "COMPUTE",
+            quantity: 5,
+            eventTimestamp: t1
+          },
+          {
+            eventId: "B3",
+            customerId: "C1",
+            resourceType: "STORAGE",
+            quantity: 100,
+            eventTimestamp: t1
+          }
+        ]
+      };
+
+      document.getElementById("batchJson").value = JSON.stringify(sample, null, 2);
+    }
+
     function setDefaults() {
       const now = new Date();
       document.getElementById("eventTimestamp").value = toLocalInputValue(now);
@@ -229,6 +282,7 @@
 
       document.getElementById("start").value = toLocalInputValue(start);
       document.getElementById("end").value = toLocalInputValue(end);
+      fillBatchSample();
     }
 
     async function postJson(url, body) {
@@ -277,6 +331,35 @@
       }
     });
 
+    document.getElementById("batchBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("batchStatus");
+      const resultEl = document.getElementById("batchResult");
+      statusEl.textContent = "Sending batch...";
+      statusEl.className = "status";
+
+      let body;
+      try {
+        body = JSON.parse(document.getElementById("batchJson").value);
+      } catch (e) {
+        statusEl.textContent = "Invalid JSON";
+        statusEl.className = "status err";
+        resultEl.textContent = String(e);
+        return;
+      }
+
+      try {
+        const result = await postJson("/v1/usage/events/batch", body);
+        resultEl.textContent = JSON.stringify(result.data, null, 2);
+        statusEl.textContent = "HTTP " + result.status;
+        statusEl.className = result.ok ? "status ok" : "status err";
+      } catch (e) {
+        resultEl.textContent = String(e);
+        statusEl.textContent = "Request failed";
+        statusEl.className = "status err";
+      }
+    });
+
+    document.getElementById("batchSampleBtn").addEventListener("click", fillBatchSample);
     document.getElementById("summaryBtn").addEventListener("click", async () => {
       const statusEl = document.getElementById("summaryStatus");
       const resultEl = document.getElementById("summaryResult");
@@ -301,6 +384,24 @@
     });
 
     document.getElementById("fillTodayBtn").addEventListener("click", setDefaults);
+
+    document.getElementById("listEventsBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("listStatus");
+      const resultEl = document.getElementById("listResult");
+      statusEl.textContent = "Loading...";
+      statusEl.className = "status";
+
+      try {
+        const result = await getJson("/v1/usage/events");
+        resultEl.textContent = JSON.stringify(result.data, null, 2);
+        statusEl.textContent = "HTTP " + result.status;
+        statusEl.className = result.ok ? "status ok" : "status err";
+      } catch (e) {
+        resultEl.textContent = String(e);
+        statusEl.textContent = "Request failed";
+        statusEl.className = "status err";
+      }
+    });
 
     setDefaults();
   </script>

@@ -19,4 +19,6 @@ public interface UsageEventRepository {
             Instant start,
             Instant end
     );
+
+    List<UsageEvent> findAll();
 }

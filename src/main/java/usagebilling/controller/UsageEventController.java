@@ -28,10 +28,14 @@ public class UsageEventController
             HttpExchange exchange) throws IOException {
 
         try {
+            String method = exchange.getRequestMethod();
 
-            if (!exchange.getRequestMethod()
-                    .equalsIgnoreCase("POST")) {
+            if ("GET".equalsIgnoreCase(method)) {
+                sendJson(exchange, 200, service.listAll());
+                return;
+            }
 
+            if (!"POST".equalsIgnoreCase(method)) {
                 sendJson(
                         exchange,
                         405,
@@ -39,10 +43,9 @@ public class UsageEventController
                                 "error",
                                 "METHOD_NOT_ALLOWED",
                                 "message",
-                                "Only POST is supported"
+                                "Only GET and POST are supported"
                         )
                 );
-
                 return;
             }
 
@@ -58,18 +61,9 @@ public class UsageEventController
                     );
 
             if (path.endsWith("/batch")) {
-
-                handleBatch(
-                        exchange,
-                        body
-                );
-
+                handleBatch(exchange, body);
             } else {
-
-                handleSingle(
-                        exchange,
-                        body
-                );
+                handleSingle(exchange, body);
             }
 
         } catch (Exception e) {

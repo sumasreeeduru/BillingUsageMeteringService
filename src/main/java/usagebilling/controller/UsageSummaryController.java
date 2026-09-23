@@ -10,6 +10,7 @@ import com.sun.net.httpserver.HttpHandler;
 
 import java.math.BigDecimal;
 import java.io.OutputStream;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
@@ -91,15 +92,16 @@ public class UsageSummaryController
                                     .getRawQuery()
                     );
 
-            Instant start =
-                    Instant.parse(
-                            query.get("start")
-                    );
-
-            Instant end =
-                    Instant.parse(
-                            query.get("end")
-                    );
+            Instant start;
+            Instant end;
+            try {
+                start = Instant.parse(requireQuery(query, "start"));
+                end = Instant.parse(requireQuery(query, "end"));
+            } catch (Exception ex) {
+                throw new IllegalArgumentException(
+                        "start and end must be ISO-8601 timestamps, e.g. 2026-09-23T00:00:00Z"
+                );
+            }
 
             Map<ResourceType, BigDecimal> usage =
                     aggregationService.getUsage(
@@ -133,6 +135,14 @@ public class UsageSummaryController
         }
     }
 
+    private String requireQuery(Map<String, String> query, String key) {
+        String value = query.get(key);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(key + " is required");
+        }
+        return value;
+    }
+
     private Map<String, String> parseQuery(
             String query) {
 
@@ -154,8 +164,8 @@ public class UsageSummaryController
 
             if (pair.length == 2) {
                 result.put(
-                        pair[0],
-                        pair[1]
+                        URLDecoder.decode(pair[0], StandardCharsets.UTF_8),
+                        URLDecoder.decode(pair[1], StandardCharsets.UTF_8)
                 );
             }
         }
