@@ -2,6 +2,60 @@
 
 Plain Java service that ingests usage events, aggregates them by resource type, and returns a priced customer summary (invoice JSON).
 
+## Architecture
+
+### End-to-end flow (ingest → storage → aggregation)
+
+Idempotency is enforced in storage with `putIfAbsent(eventId)`.
+
+```mermaid
+flowchart TD
+    A[Client / Demo UI] -->|POST /v1/usage/events<br/>or /batch| B[UsageEventController]
+    B -->|JSON to UsageEventRequest| C[UsageEventService]
+    C --> D{Validate request}
+    D -->|invalid| E[400 IllegalArgumentException]
+    D -->|valid| F[Build UsageEvent<br/>plus receivedAt]
+    F --> G[UsageEventRepository.save]
+    G --> H{putIfAbsent eventId}
+    H -->|key new| I[(In-memory map<br/>event stored)]
+    H -->|key exists| J[Not inserted again]
+    I --> K[200 accepted]
+    J --> L[200 duplicate]
+
+    M[Client / Demo UI] -->|GET /v1/customers/id/usage<br/>start and end| N[UsageSummaryController]
+    N --> O[UsageAggregationService.getUsage]
+    O --> P[findByCustomerAndTimeRange<br/>filter by eventTimestamp]
+    P --> I
+    O --> Q[Sum quantity by ResourceType]
+    Q --> R[PricingService.createSummary]
+    R --> S[PriceRepository unit prices]
+    R --> T[UsageSummary invoice JSON]
+    T --> M
+```
+
+### UsageAggregationService flow
+
+```mermaid
+flowchart TD
+    A[getUsage customerId, start, end] --> B{Validate inputs}
+    B -->|missing customerId| C[IllegalArgumentException]
+    B -->|start or end null| C
+    B -->|start not before end| C
+    B -->|valid| D[UsageEventRepository<br/>findByCustomerAndTimeRange]
+
+    D --> E[Scan stored events]
+    E --> F{customerId match?}
+    F -->|no| E
+    F -->|yes| G{eventTimestamp in<br/>start inclusive, end exclusive?}
+    G -->|no| E
+    G -->|yes| H[Include event in list]
+
+    H --> I[For each included event]
+    I --> J[totals.merge resourceType,<br/>quantity, BigDecimal.add]
+    J --> K[Map of ResourceType to total quantity]
+    K --> L[Return map to caller<br/>PricingService uses it next]
+```
+
 ## Setup
 
 - Requires **Java 17+** and **Maven**
