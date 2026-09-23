@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usage Billing Demo</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a2332;
+      --muted: #5c6b7a;
+      --line: #d8dee6;
+      --accent: #0b6e4f;
+      --accent-hover: #095c42;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    header {
+      padding: 1.5rem 1.25rem 0.5rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.5rem;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem 2rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 800px) {
+      main { grid-template-columns: 1fr 1fr; }
+      .full { grid-column: 1 / -1; }
+    }
+
+    section {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1rem 1.1rem 1.15rem;
+    }
+
+    section h2 {
+      margin: 0 0 0.85rem;
+      font-size: 1.05rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0.55rem 0 0.25rem;
+    }
+
+    input, select, textarea, button {
+      width: 100%;
+      font: inherit;
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+    }
+
+    button {
+      margin-top: 0.9rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover { background: var(--accent-hover); }
+
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    button.secondary:hover { background: #f0f3f6; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem;
+    }
+
+    pre {
+      margin: 0.75rem 0 0;
+      padding: 0.85rem;
+      background: #0f1720;
+      color: #e8eef5;
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 0.82rem;
+      min-height: 8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .status {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .status.ok { color: var(--accent); }
+    .status.err { color: #b42318; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Usage Billing Demo</h1>
+    <p>Submit usage events and fetch a customer invoice summary as JSON.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>1. Ingest usage event</h2>
+      <label for="eventId">Event ID</label>
+      <input id="eventId" value="E1" />
+
+      <label for="customerId">Customer ID</label>
+      <input id="customerId" value="C1" />
+
+      <div class="row">
+        <div>
+          <label for="resourceType">Resource type</label>
+          <select id="resourceType">
+            <option value="DATABASE">DATABASE</option>
+            <option value="COMPUTE">COMPUTE</option>
+            <option value="STORAGE">STORAGE</option>
+            <option value="LOAD_BALANCER">LOAD_BALANCER</option>
+          </select>
+        </div>
+        <div>
+          <label for="quantity">Quantity</label>
+          <input id="quantity" type="number" min="0" step="0.01" value="10" />
+        </div>
+      </div>
+
+      <label for="eventTimestamp">Event timestamp (UTC)</label>
+      <input id="eventTimestamp" />
+
+      <button id="ingestBtn" type="button">Send event</button>
+      <p id="ingestStatus" class="status"></p>
+      <pre id="ingestResult">{}</pre>
+    </section>
+
+    <section>
+      <h2>2. Customer invoice summary</h2>
+      <label for="summaryCustomerId">Customer ID</label>
+      <input id="summaryCustomerId" value="C1" />
+
+      <div class="row">
+        <div>
+          <label for="start">Start (UTC)</label>
+          <input id="start" />
+        </div>
+        <div>
+          <label for="end">End (UTC)</label>
+          <input id="end" />
+        </div>
+      </div>
+
+      <button id="summaryBtn" type="button">Get invoice JSON</button>
+      <button id="fillTodayBtn" class="secondary" type="button">Fill today range</button>
+      <p id="summaryStatus" class="status"></p>
+      <pre id="summaryResult">{}</pre>
+    </section>
+
+    <section class="full">
+      <h2>How to use</h2>
+      <p style="margin:0;color:var(--muted);font-size:0.92rem;">
+        Send one or more events, then fetch the invoice for that customer and time range.
+        Duplicate event IDs return status <code>duplicate</code> (HTTP 200).
+      </p>
+    </section>
+  </main>
+
+  <script>
+    function toLocalInputValue(date) {
+      const pad = (n) => String(n).padStart(2, "0");
+      return date.getUTCFullYear() + "-" +
+        pad(date.getUTCMonth() + 1) + "-" +
+        pad(date.getUTCDate()) + "T" +
+        pad(date.getUTCHours()) + ":" +
+        pad(date.getUTCMinutes()) + ":" +
+        pad(date.getUTCSeconds());
+    }
+
+    function inputToIso(value) {
+      if (!value) return null;
+      // datetime-local style without Z → treat as UTC for this demo
+      return value.endsWith("Z") ? value : value + "Z";
+    }
+
+    function setDefaults() {
+      const now = new Date();
+      document.getElementById("eventTimestamp").value = toLocalInputValue(now);
+
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 1);
+
+      document.getElementById("start").value = toLocalInputValue(start);
+      document.getElementById("end").value = toLocalInputValue(end);
+    }
+
+    async function postJson(url, body) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
+      return { ok: response.ok, status: response.status, data };
+    }
+
+    async function getJson(url) {
+      const response = await fetch(url);
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
+      return { ok: response.ok, status: response.status, data };
+    }
+
+    document.getElementById("ingestBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("ingestStatus");
+      const resultEl = document.getElementById("ingestResult");
+      statusEl.textContent = "Sending...";
+      statusEl.className = "status";
+
+      const body = {
+        eventId: document.getElementById("eventId").value.trim(),
+        customerId: document.getElementById("customerId").value.trim(),
+        resourceType: document.getElementById("resourceType").value,
+        quantity: Number(document.getElementById("quantity").value),
+        eventTimestamp: inputToIso(document.getElementById("eventTimestamp").value)
+      };
+
+      try {
+        const result = await postJson("/v1/usage/events", body);
+        resultEl.textContent = JSON.stringify(result.data, null, 2);
+        statusEl.textContent = "HTTP " + result.status;
+        statusEl.className = result.ok ? "status ok" : "status err";
+      } catch (e) {
+        resultEl.textContent = String(e);
+        statusEl.textContent = "Request failed";
+        statusEl.className = "status err";
+      }
+    });
+
+    document.getElementById("summaryBtn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("summaryStatus");
+      const resultEl = document.getElementById("summaryResult");
+      statusEl.textContent = "Loading...";
+      statusEl.className = "status";
+
+      const customerId = encodeURIComponent(document.getElementById("summaryCustomerId").value.trim());
+      const start = encodeURIComponent(inputToIso(document.getElementById("start").value));
+      const end = encodeURIComponent(inputToIso(document.getElementById("end").value));
+      const url = "/v1/customers/" + customerId + "/usage?start=" + start + "&end=" + end;
+
+      try {
+        const result = await getJson(url);
+        resultEl.textContent = JSON.stringify(result.data, null, 2);
+        statusEl.textContent = "HTTP " + result.status;
+        statusEl.className = result.ok ? "status ok" : "status err";
+      } catch (e) {
+        resultEl.textContent = String(e);
+        statusEl.textContent = "Request failed";
+        statusEl.className = "status err";
+      }
+    });
+
+    document.getElementById("fillTodayBtn").addEventListener("click", setDefaults);
+
+    setDefaults();
+  </script>
+</body>
+</html>

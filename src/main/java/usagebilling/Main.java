@@ -1,5 +1,6 @@
 package usagebilling;
 
+import usagebilling.controller.DemoPageController;
 import usagebilling.controller.UsageEventController;
 import usagebilling.controller.UsageSummaryController;
 import usagebilling.repository.InMemoryPriceRepository;
@@ -89,6 +90,11 @@ public class Main {
                 );
 
         server.createContext(
+                "/",
+                new DemoPageController()
+        );
+
+        server.createContext(
                 "/v1/usage/events",
                 eventController
         );
@@ -105,6 +111,9 @@ public class Main {
         System.out.println(
                 "Usage Billing Service started on port "
                         + port
+        );
+        System.out.println(
+                "Demo UI: http://localhost:" + port + "/"
         );
     }
 }
