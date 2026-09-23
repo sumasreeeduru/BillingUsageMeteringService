@@ -96,4 +96,9 @@ public class InMemoryUsageEventRepository
     public List<UsageEvent> findAll() {
         return new ArrayList<>(events.values());
     }
+
+    @Override
+    public void clear() {
+        events.clear();
+    }
 }

@@ -35,6 +35,21 @@ public class UsageEventController
                 return;
             }
 
+            if ("DELETE".equalsIgnoreCase(method)) {
+                service.clearAll();
+                sendJson(
+                        exchange,
+                        200,
+                        Map.of(
+                                "status",
+                                "cleared",
+                                "message",
+                                "All stored events were removed"
+                        )
+                );
+                return;
+            }
+
             if (!"POST".equalsIgnoreCase(method)) {
                 sendJson(
                         exchange,
@@ -43,7 +58,7 @@ public class UsageEventController
                                 "error",
                                 "METHOD_NOT_ALLOWED",
                                 "message",
-                                "Only GET and POST are supported"
+                                "Only GET, POST and DELETE are supported"
                         )
                 );
                 return;

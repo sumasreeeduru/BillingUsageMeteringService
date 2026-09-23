@@ -21,4 +21,6 @@ public interface UsageEventRepository {
     );
 
     List<UsageEvent> findAll();
+
+    void clear();
 }

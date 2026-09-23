@@ -42,6 +42,11 @@ public class UsageEventService {
         return all;
     }
 
+    public void clearAll() {
+        repository.clear();
+        System.out.println("Stored events cleared");
+    }
+
     public void ingestBatch(List<UsageEventRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             throw new IllegalArgumentException("events must contain at least one event");
